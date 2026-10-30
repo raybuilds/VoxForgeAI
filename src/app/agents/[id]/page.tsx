@@ -12,13 +12,18 @@ import {
   Edit,
   Trash2,
   AlertCircle,
+  PhoneCall,
+  Clock,
+  ExternalLink,
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { defaultAgentRepository } from "@/lib/repositories/agent-repository";
+import { defaultSessionRepository } from "@/lib/repositories/session-repository";
 import { Agent } from "@/types";
+import { ConversationSession } from "@/types/agent";
 
 function AgentDetailsContent() {
   const params = useParams();
@@ -28,6 +33,7 @@ function AgentDetailsContent() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sessions, setSessions] = useState<ConversationSession[]>([]);
 
   useEffect(() => {
     async function fetchAgent() {
@@ -36,6 +42,10 @@ function AgentDetailsContent() {
       try {
         const found = await defaultAgentRepository.getById(agentId);
         setAgent(found || null);
+        if (found) {
+          const agentSessions = await defaultSessionRepository.getByAgentId(agentId);
+          setSessions(agentSessions);
+        }
       } catch (err) {
         console.error("Failed to load agent:", err);
       } finally {
@@ -347,6 +357,79 @@ function AgentDetailsContent() {
                     </span>
                   </div>
                   <p className="text-text-secondary">{esc.condition}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Session Interaction History (M5 Observability) */}
+        <div className="p-5 rounded-xl border border-border/70 bg-navy-deep/80 backdrop-blur-md space-y-4 font-mono">
+          <div className="flex items-center justify-between border-b border-border/50 pb-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white uppercase tracking-wider">
+              <PhoneCall className="w-4 h-4 text-cyan" />
+              <span>Session History ({sessions.length})</span>
+            </div>
+            <Link
+              href={`/sessions?agent=${agent.id}`}
+              className="text-[11px] text-cyan hover:underline flex items-center gap-1"
+            >
+              <span>Explore All Telemetry</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {sessions.length === 0 ? (
+            <div className="p-6 text-center text-text-muted space-y-2">
+              <p className="text-xs">No interaction sessions recorded for this agent yet.</p>
+              <p className="text-[11px] text-text-secondary">
+                Simulate a test interaction in the Voice Playground or trigger a test session from Session Explorer.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-navy-elevated/40 px-2 rounded transition-colors"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-cyan font-bold">
+                        {s.id.slice(0, 13)}...
+                      </span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded border uppercase font-bold ${
+                          s.outcome === "resolved"
+                            ? "bg-cyan/10 text-cyan border-cyan/30"
+                            : s.outcome === "escalated"
+                            ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                            : "bg-red-500/10 text-red-400 border-red-500/30"
+                        }`}
+                      >
+                        {s.outcome}
+                      </span>
+                      <span className="text-[9px] text-text-muted bg-navy-elevated px-1.5 py-0.2 rounded border border-border/80">
+                        {s.source}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-text-secondary line-clamp-1 max-w-xl">
+                      {s.summary || "Interaction recorded."}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-[11px] text-text-muted shrink-0">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-cyan" />
+                      {Math.floor(s.metrics.durationSeconds / 60)}m {s.metrics.durationSeconds % 60}s
+                    </span>
+                    <span>{new Date(s.startedAt).toLocaleDateString()}</span>
+                    <Link href={`/sessions/${s.id}`}>
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]">
+                        Inspect
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ))}
             </div>

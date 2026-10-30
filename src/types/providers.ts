@@ -28,29 +28,53 @@ export interface AgentRepository {
 }
 
 /**
- * Filter options for querying sessions
+ * Filter options for querying sessions (M5 Observability)
  */
 export interface SessionFilter {
   agentId?: string;
+  search?: string;
   isTestSession?: boolean;
   status?: ConversationSession["status"];
+  outcome?: ConversationSession["outcome"];
+  source?: ConversationSession["source"];
+  startDate?: string;
+  endDate?: string;
   limit?: number;
+  sort?: "newest" | "oldest";
 }
 
 /**
- * Repository interface for session storage & metrics
+ * Aggregated metrics summary derived from session records
+ */
+export interface SessionMetricsSummary {
+  totalSessions: number;
+  completedSessions: number;
+  escalatedSessions: number;
+  resolvedSessions: number;
+  abandonedSessions: number;
+  resolutionRate: number; // percentage (0-100)
+  escalationRate: number; // percentage (0-100)
+  averageDurationSeconds: number;
+  averageLatencyMs: number | null;
+  agentVolumeDistribution: Array<{ agentId: string; agentName: string; count: number }>;
+  outcomeDistribution: Record<string, number>;
+  statusDistribution: Record<string, number>;
+}
+
+/**
+ * Repository interface for session storage & metrics (M5 Observability)
  */
 export interface SessionRepository {
+  getAll(): Promise<ConversationSession[]>;
   getById(id: string): Promise<ConversationSession | null>;
+  getByAgentId(agentId: string): Promise<ConversationSession[]>;
   list(filter?: SessionFilter): Promise<ConversationSession[]>;
+  create(session: ConversationSession): Promise<ConversationSession>;
   save(session: ConversationSession): Promise<void>;
-  getMetricsSummary(): Promise<{
-    totalSessions: number;
-    completedSessions: number;
-    escalatedSessions: number;
-    averageDurationSeconds: number;
-    successRate: number;
-  }>;
+  update(id: string, updates: Partial<ConversationSession>): Promise<ConversationSession>;
+  delete(id: string): Promise<void>;
+  clear(): Promise<void>;
+  getMetricsSummary(filter?: SessionFilter): Promise<SessionMetricsSummary>;
 }
 
 /**

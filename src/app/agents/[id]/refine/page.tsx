@@ -66,7 +66,7 @@ function RefineAgentContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageCounter = useRef(0);
 
-  // Load agent on mount
+  // Load agent and persistent chat session on mount
   useEffect(() => {
     async function loadAgent() {
       if (!agentId) return;
@@ -75,16 +75,37 @@ function RefineAgentContent() {
         const found = await defaultAgentRepository.getById(agentId);
         if (found) {
           setAgent(found);
-          // Initial greeting in refinement studio
-          messageCounter.current += 1;
-          setMessages([
-            {
-              id: `msg-init-${messageCounter.current}`,
-              role: "assistant",
-              text: `Welcome to the Conversational Refinement Studio for **${found.config.name}** (v${found.version}). Describe what you would like to change—such as vocal persona, welcome message, guardrails, or conversation steps. Unrelated fields will remain strictly preserved.`,
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            },
-          ]);
+
+          // Restore saved session conversation history if present
+          let restored = false;
+          if (typeof window !== "undefined" && window.sessionStorage) {
+            try {
+              const saved = window.sessionStorage.getItem(`voxforge_refine_chat_${agentId}`);
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setMessages(parsed);
+                  messageCounter.current = parsed.length;
+                  restored = true;
+                }
+              }
+            } catch {
+              // Ignore session storage error
+            }
+          }
+
+          if (!restored) {
+            // Initial greeting in refinement studio
+            messageCounter.current += 1;
+            setMessages([
+              {
+                id: `msg-init-${messageCounter.current}`,
+                role: "assistant",
+                text: `Welcome to the Conversational Refinement Studio for **${found.config.name}** (v${found.version}). Describe what you would like to change—such as vocal persona, welcome message, guardrails, or conversation steps. Unrelated fields will remain strictly preserved.`,
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ]);
+          }
         }
       } catch (err) {
         console.error("Failed to load agent:", err);
@@ -94,6 +115,18 @@ function RefineAgentContent() {
     }
     loadAgent();
   }, [agentId]);
+
+  // Persist messages to sessionStorage when updated
+  useEffect(() => {
+    if (!agentId || messages.length === 0) return;
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem(`voxforge_refine_chat_${agentId}`, JSON.stringify(messages));
+      } catch {
+        // Ignore quota/session storage error
+      }
+    }
+  }, [agentId, messages]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {

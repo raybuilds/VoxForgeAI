@@ -8,6 +8,7 @@ import {
   PlusCircle,
   PlayCircle,
   BarChart3,
+  PhoneCall,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ const navigationItems = [
   { name: "My Agents", href: "/agents", icon: Bot },
   { name: "Create Agent", href: "/create", icon: PlusCircle },
   { name: "Voice Playground", href: "/playground", icon: PlayCircle },
+  { name: "Sessions Explorer", href: "/sessions", icon: PhoneCall },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

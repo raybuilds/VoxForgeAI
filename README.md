@@ -170,8 +170,17 @@ c:/Projects/VoxForgeAI/
   - Apply and Reject approval workflow integrating directly with `LocalStorageAgentRepository`.
   - Interactive Undo stack reverting the most recently applied refinement session.
   - Multi-turn conversation history tracking user requests, explanations, and applied status.
-- [ ] **M5: ElevenLabs Conversational AI Integration**
+- [x] **M5: Session Observability** (Complete)
+  - Strongly-typed session architecture (`ConversationSession`, `SessionMetrics`, `SessionEscalation`, `TranscriptMessage`).
+  - Browser-local persistent repository via `LocalStorageSessionRepository` (`voxforge_sessions_v1`).
+  - Deterministic `MockSessionProvider` generating realistic, explicitly labeled simulated sessions.
+  - Upgraded Analytics Dashboard (`/analytics`) calculating metrics, outcome breakdowns, and agent volumes dynamically.
+  - Dedicated Session Explorer (`/sessions`) supporting search, status/outcome/agent filtering, and chronological sorting.
+  - Comprehensive Session Detail Inspector (`/sessions/[id]`) with turn-by-turn transcripts, latency benchmarks, and escalation telemetry.
+  - Agent Inspector integration (`/agents/[id]`) displaying historical sessions filtered strictly by agent ID.
+  - Voice Playground integration (`/playground`) with one-click test session simulation persisting to local telemetry.
+- [ ] **M6: Web Deployment**
+- [ ] **M7: ElevenLabs Conversational AI Integration**
   - Bi-directional WebSockets audio streaming.
   - ElevenLabs agent synchronization and remote publishing.
-- [ ] **M6: Analytics & Production Hardening**
-  - Session replay, turn latencies, sentiment evaluation, and export.
+- [ ] **M8: Advanced Features & Polish**

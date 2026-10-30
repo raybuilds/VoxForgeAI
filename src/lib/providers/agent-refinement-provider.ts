@@ -57,7 +57,16 @@ export class MockAgentRefinementProvider implements AgentRefinementProvider {
       lower.includes("introduction") ||
       lower.includes("hello message")
     ) {
-      if (lower.includes("short") || lower.includes("concise") || lower.includes("brief")) {
+      if (
+        (lower.includes("short") || lower.includes("concise") || lower.includes("brief")) &&
+        (lower.includes("warm") || lower.includes("welcoming") || lower.includes("friendly"))
+      ) {
+        // Both shorter and more welcoming
+        proposed.welcomeMessage = `Warm welcome! My name is ${proposed.name}. How may I delight and assist you today?`;
+        modifiedFields.push("welcomeMessage");
+        explanations.push("Updated welcome message to be concise yet warmly welcoming.");
+        handled = true;
+      } else if (lower.includes("short") || lower.includes("concise") || lower.includes("brief")) {
         // Shorten the existing welcome message
         const sentences = proposed.welcomeMessage.split(/[.?!]/).filter((s) => s.trim().length > 0);
         if (sentences.length > 1) {
@@ -109,20 +118,22 @@ export class MockAgentRefinementProvider implements AgentRefinementProvider {
       { key: "calm", desc: "grounded, calming, patient, and reassuring speaker who excels in de-escalating tense moments" },
     ];
 
-    const matchedTone = toneTriggers.find((t) => lower.includes(t.key));
-    if (matchedTone) {
-      // Update persona
-      proposed.persona = `${proposed.persona}. Tuned to be an exceptionally ${matchedTone.desc}.`;
+    const matchedTones = toneTriggers.filter((t) => lower.includes(t.key));
+    if (matchedTones.length > 0) {
+      // Update persona with all matched tones
+      const descList = matchedTones.map((t) => t.desc).join(" and ");
+      const keyList = matchedTones.map((t) => t.key).join(", ");
+      proposed.persona = `${proposed.persona}. Tuned to be an exceptionally ${descList}.`;
       if (!modifiedFields.includes("persona")) modifiedFields.push("persona");
 
       // Complement system instructions with matching vocal guidelines
-      const instructionAddendum = `\nVocal delivery guideline: Maintain a ${matchedTone.key} tone throughout. Keep responses conversational, acknowledge caller context empathetically, and adapt pacing smoothly.`;
-      if (!proposed.systemInstructions.includes(matchedTone.key)) {
+      const instructionAddendum = `\nVocal delivery guideline: Maintain a ${keyList} tone throughout. Keep responses conversational, acknowledge caller context empathetically, and adapt pacing smoothly.`;
+      if (!proposed.systemInstructions.includes(keyList)) {
         proposed.systemInstructions = `${proposed.systemInstructions}${instructionAddendum}`;
         if (!modifiedFields.includes("systemInstructions")) modifiedFields.push("systemInstructions");
       }
 
-      explanations.push(`Refined persona and vocal delivery instructions to be ${matchedTone.key}.`);
+      explanations.push(`Refined persona and vocal delivery instructions to be ${keyList}.`);
       handled = true;
     }
 

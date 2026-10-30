@@ -87,10 +87,44 @@ export const TranscriptMessageSchema = z.object({
   id: z.string().min(1),
   role: TranscriptRoleSchema,
   text: z.string(),
-  timestamp: z.string().datetime(),
+  timestamp: z.string(),
   latencyMs: z.number().int().nonnegative().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type TranscriptMessage = z.infer<typeof TranscriptMessageSchema>;
+
+/**
+ * Supported Session lifecycle states
+ */
+export const SessionStatusSchema = z.enum([
+  "queued",
+  "in_progress",
+  "completed",
+  "failed",
+  "abandoned",
+]);
+export type SessionStatus = z.infer<typeof SessionStatusSchema>;
+
+/**
+ * Supported Session outcome classifications
+ */
+export const SessionOutcomeSchema = z.enum([
+  "resolved",
+  "escalated",
+  "unresolved",
+  "abandoned",
+  "unknown",
+]);
+export type SessionOutcome = z.infer<typeof SessionOutcomeSchema>;
+
+/**
+ * Session origin / runtime source
+ */
+export const SessionSourceSchema = z.enum([
+  "simulated",
+  "elevenlabs", // future-compatible type, not actively connected in M5
+]);
+export type SessionSource = z.infer<typeof SessionSourceSchema>;
 
 /**
  * Session metrics for analytics
@@ -99,26 +133,43 @@ export const SessionMetricsSchema = z.object({
   durationSeconds: z.number().int().nonnegative().default(0),
   userTurns: z.number().int().nonnegative().default(0),
   agentTurns: z.number().int().nonnegative().default(0),
-  averageLatencyMs: z.number().int().nonnegative().default(0),
+  totalMessages: z.number().int().nonnegative().default(0),
+  averageLatencyMs: z.number().int().nonnegative().nullable().optional(),
+  firstResponseLatencyMs: z.number().int().nonnegative().nullable().optional(),
   interruptionCount: z.number().int().nonnegative().default(0),
-  outcome: z.enum(["completed", "escalated", "abandoned", "error"]).default("completed"),
   sentiment: z.enum(["positive", "neutral", "negative"]).optional(),
+  isSimulatedMetrics: z.boolean().default(true),
 });
 export type SessionMetrics = z.infer<typeof SessionMetricsSchema>;
 
 /**
- * Conversation Session entity
+ * Escalation tracking metadata
+ */
+export const SessionEscalationSchema = z.object({
+  occurred: z.boolean().default(false),
+  reason: z.string().optional(),
+  target: z.string().optional(),
+  escalatedAt: z.string().optional(),
+});
+export type SessionEscalation = z.infer<typeof SessionEscalationSchema>;
+
+/**
+ * Complete Conversation Session entity (M5 Observability)
  */
 export const ConversationSessionSchema = z.object({
   id: z.string().uuid(),
   agentId: z.string().uuid(),
-  agentName: z.string(),
-  startedAt: z.string().datetime(),
-  endedAt: z.string().datetime().optional(),
-  status: z.enum(["active", "completed", "failed", "escalated"]),
+  agentName: z.string(), // Snapshot of agent name at session time
+  source: SessionSourceSchema.default("simulated"),
+  status: SessionStatusSchema.default("completed"),
+  outcome: SessionOutcomeSchema.default("resolved"),
+  startedAt: z.string(),
+  endedAt: z.string().optional(),
+  summary: z.string().optional(),
   transcript: z.array(TranscriptMessageSchema).default([]),
   metrics: SessionMetricsSchema,
-  summary: z.string().optional(),
+  escalation: SessionEscalationSchema.optional(),
   isTestSession: z.boolean().default(true),
+  createdAt: z.string().default(() => new Date().toISOString()),
 });
 export type ConversationSession = z.infer<typeof ConversationSessionSchema>;
