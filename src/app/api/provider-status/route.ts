@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   const geminiConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
