@@ -4,20 +4,28 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Bot,
-  Globe2,
   PhoneCall,
   Plus,
   PlayCircle,
   ArrowRight,
-  Sliders,
   RotateCcw,
   Sparkles,
+  Layers,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { defaultAgentRepository } from "@/lib/repositories/agent-repository";
 import { defaultSessionRepository } from "@/lib/repositories/session-repository";
+import {
+  PipelineEnergyWave,
+  PipelineStageOneIcon,
+  PipelineStageTwoIcon,
+  PipelineStageThreeIcon,
+} from "@/components/visual/pipeline-energy-wave";
+import { AppVideoBackground } from "@/components/visual/app-video-background";
 import { Agent } from "@/types";
 import { ConversationSession } from "@/types/agent";
 
@@ -272,110 +280,221 @@ export default function OverviewPage() {
       </section>
 
       {/* =========================================================================
-          SECTION 3: WORKSPACE OPERATIONS & DASHBOARD (Secondary Overview)
-          - Persistent Storage Switcher (Clear / Restore Demo Data)
-          - 3-Step Autonomous Voice Pipeline
-          - Active Voice Agents Grid
-          - Recent Telemetry Stream
+          PART 2: WORKSPACE OVERVIEW & OPERATIONS (Cinematic HUD Dashboard)
+          - Dedicated Background Video: /visuals/rest_bg.mp4 covering entire section
+          - Workspace Overview Header + Persistence Switcher & Cyan Divider
+          - Autonomous Voice Pipeline (3 Stages with Continuous Particle Wave)
+          - Lower Dashboard Split: Active Voice Agents (2 cols) & Recent Telemetry (1 col)
       ========================================================================== */}
-      <section className="border-t border-border/80 bg-navy-void/90 relative z-30 px-6 md:px-12 py-12 space-y-10 max-w-7xl mx-auto w-full">
-        {/* Workspace Subheading Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/60 font-mono text-xs">
-          <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 text-cyan" />
-            <span className="text-white font-bold uppercase tracking-wider">
-              Workspace Overview & Operations
-            </span>
-          </div>
+      <section className="relative z-30 border-t border-cyan/20 overflow-hidden w-full">
+        {/* Dedicated Section-Level Video Background (`rest_bg.mp4`) */}
+        <AppVideoBackground
+          src="/visuals/rest_bg.mp4"
+          positionMode="absolute"
+          overlayOpacity={0.72}
+          className="z-0"
+        />
 
-          <div className="flex items-center gap-4 text-text-secondary">
-            <span>
-              PERSISTENCE:{" "}
-              <strong className="text-white">
-                {hasDemo ? "DEMO TELEMETRY ACTIVE" : "CLEAN STORAGE"}
-              </strong>
-            </span>
-            {hasDemo ? (
-              <button
-                onClick={handleClearDemo}
-                className="text-amber-400 hover:text-white underline transition-colors cursor-pointer"
-              >
-                [Clear Demo Records]
-              </button>
-            ) : (
-              <button
-                onClick={handleRestoreDemo}
-                className="text-cyan hover:text-white underline transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>[Restore Demo Agents]</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 3-Step Pipeline Card */}
-        <div className="p-6 rounded-2xl border border-border/80 bg-navy-deep/70 backdrop-blur-md space-y-4">
-          <div className="flex items-center justify-between border-b border-border/60 pb-3 font-mono">
+        {/* Part 2 Content Layer */}
+        <div className="relative z-10 px-6 md:px-12 py-14 space-y-12 max-w-7xl mx-auto w-full">
+        {/* 1. Workspace Overview Header */}
+        <div className="space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
             <div>
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                Autonomous Voice Pipeline
-              </h3>
-              <p className="text-xs text-text-secondary mt-0.5">
-                From natural-language instruction to low-latency production telephony
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-sm bg-cyan shadow-[0_0_8px_rgba(0,229,255,0.8)]" />
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-wider uppercase">
+                  WORKSPACE OVERVIEW & OPERATIONS
+                </h2>
+              </div>
+              <p className="text-xs text-text-muted mt-1 font-sans">
+                Manage your voice agents, monitor performance, and control your autonomous pipeline.
               </p>
             </div>
-            <span className="text-[10px] text-cyan/70 border border-cyan/30 px-2 py-0.5 rounded">
-              SPEC v1.0
-            </span>
+
+            {/* Persistence & Demo Telemetry Status Controls */}
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/80 bg-navy-deep/60">
+                <span className="text-text-muted">PERSISTENCE:</span>
+                <span className="flex items-center gap-1.5 font-bold text-white">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      hasDemo ? "bg-amber-400 animate-pulse" : "bg-cyan"
+                    }`}
+                  />
+                  {hasDemo ? "DEMO TELEMETRY ACTIVE" : "CLEAN STORAGE"}
+                </span>
+              </div>
+
+              {hasDemo ? (
+                <button
+                  onClick={handleClearDemo}
+                  className="px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                >
+                  Clear Demo Records
+                </button>
+              ) : (
+                <button
+                  onClick={handleRestoreDemo}
+                  className="px-3 py-1.5 rounded-lg border border-cyan/30 bg-cyan/10 text-cyan hover:bg-cyan/20 hover:text-white transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restore Demo Agents</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1 font-mono">
-            <div className="p-4 rounded-xl border border-border/70 bg-navy-elevated/60 hover:border-cyan/40 transition-colors space-y-2 group">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-cyan">01 // DEFINE</span>
-                <Sliders className="w-3.5 h-3.5 text-text-muted group-hover:text-cyan transition-colors" />
+          {/* Subtle luminous cyan divider */}
+          <div className="h-[1px] w-full bg-gradient-to-r from-cyan/40 via-cyan/20 to-transparent" />
+        </div>
+
+        {/* 2. Autonomous Voice Pipeline (3 Stages with Continuous Connecting Energy Stream) */}
+        <div className="relative p-6 sm:p-8 rounded-2xl border border-cyan/20 bg-navy-deep/40 backdrop-blur-md overflow-hidden">
+          {/* Subtle corner technical brackets */}
+          <span className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan/60" />
+          <span className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan/60" />
+          <span className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan/60" />
+          <span className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan/60" />
+
+          {/* Pipeline Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-5 border-b border-border/50 font-mono">
+            <div>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  AUTONOMOUS VOICE PIPELINE
+                </h3>
               </div>
-              <h4 className="text-sm font-semibold text-white">Describe in Plain Language</h4>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Enter your business goals, persona, required questions, and escalation handoff triggers.
+              <p className="text-xs text-text-muted mt-0.5 font-sans">
+                Continuous translation from natural language prompt to production telephony deployment
               </p>
             </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-[10px] text-cyan bg-cyan/10 border border-cyan/30 px-2.5 py-0.5 rounded-full font-bold">
+                STREAM ARCHITECTURE
+              </span>
+            </div>
+          </div>
 
-            <div className="p-4 rounded-xl border border-border/70 bg-navy-elevated/60 hover:border-cyan/40 transition-colors space-y-2 group">
+          {/* Continuous connecting energy wave stream */}
+          <div className="hidden md:block my-2">
+            <PipelineEnergyWave />
+          </div>
+
+          {/* 3 Pipeline Stages */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 font-mono">
+            {/* Stage 01 — DEFINE */}
+            <div className="relative p-5 rounded-xl border border-cyan/20 bg-navy-elevated/40 hover:border-cyan/50 hover:bg-navy-elevated/70 transition-all space-y-3.5 group">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-electric">02 // VERIFY</span>
-                <PlayCircle className="w-3.5 h-3.5 text-text-muted group-hover:text-electric transition-colors" />
+                <span className="text-xs font-bold text-cyan tracking-wider">
+                  STAGE 01 // DEFINE
+                </span>
+                <span className="text-[10px] text-text-muted px-2 py-0.5 rounded bg-navy-void border border-border/60">
+                  INPUT
+                </span>
               </div>
-              <h4 className="text-sm font-semibold text-white">Test in Voice Console</h4>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Inspect latency, interruption handling, and response accuracy in the browser playground.
-              </p>
+
+              {/* Visual Icon: Rotating cyan particle gear / energy sphere */}
+              <div className="py-1">
+                <PipelineStageOneIcon />
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white tracking-wide">
+                  Describe in Plain Language
+                </h4>
+                <p className="text-xs text-text-secondary mt-1 leading-relaxed font-sans">
+                  Enter your business goals, persona, required questions, and escalation handoff triggers.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-text-muted">
+                <span>Schema Compilation</span>
+                <span className="text-cyan group-hover:translate-x-1 transition-transform">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-border/70 bg-navy-elevated/60 hover:border-cyan/40 transition-colors space-y-2 group">
+            {/* Stage 02 — VERIFY */}
+            <div className="relative p-5 rounded-xl border border-electric/30 bg-navy-elevated/40 hover:border-electric/60 hover:bg-navy-elevated/70 transition-all space-y-3.5 group">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-teal">03 // DEPLOY</span>
-                <Globe2 className="w-3.5 h-3.5 text-text-muted group-hover:text-teal transition-colors" />
+                <span className="text-xs font-bold text-electric tracking-wider">
+                  STAGE 02 // VERIFY
+                </span>
+                <span className="text-[10px] text-text-muted px-2 py-0.5 rounded bg-navy-void border border-border/60">
+                  SANDBOX
+                </span>
               </div>
-              <h4 className="text-sm font-semibold text-white">Export to ElevenLabs</h4>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Synchronize directly to ElevenLabs Conversational Agents for web and telephony calls.
-              </p>
+
+              {/* Visual Icon: Organic blue/cyan nodal wave structure */}
+              <div className="py-1">
+                <PipelineStageTwoIcon />
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white tracking-wide">
+                  Test in Voice Console
+                </h4>
+                <p className="text-xs text-text-secondary mt-1 leading-relaxed font-sans">
+                  Inspect latency, interruption handling, and response accuracy in the browser playground.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-text-muted">
+                <span>Realtime Telemetry</span>
+                <span className="text-electric group-hover:translate-x-1 transition-transform">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+
+            {/* Stage 03 — DEPLOY */}
+            <div className="relative p-5 rounded-xl border border-teal/30 bg-navy-elevated/40 hover:border-teal/60 hover:bg-navy-elevated/70 transition-all space-y-3.5 group">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-teal tracking-wider">
+                  STAGE 03 // DEPLOY
+                </span>
+                <span className="text-[10px] text-text-muted px-2 py-0.5 rounded bg-navy-void border border-border/60">
+                  TARGET
+                </span>
+              </div>
+
+              {/* Visual Icon: Crystalline cyan energy core connected to deployment symbol */}
+              <div className="py-1">
+                <PipelineStageThreeIcon />
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-white tracking-wide">
+                  Export to ElevenLabs
+                </h4>
+                <p className="text-xs text-text-secondary mt-1 leading-relaxed font-sans">
+                  Synchronize directly to ElevenLabs Conversational Agents for web and telephony calls.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-text-muted">
+                <span>Web / SIP Handoff</span>
+                <span className="text-teal group-hover:translate-x-1 transition-transform">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Content Split: Active Voice Agents & Recent Telemetry */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Active Voice Agents (2 cols) */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between font-mono">
-              <div>
-                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                  Active Voice Agents ({agents.length})
+        {/* 3. Lower Dashboard Layout: Two-Column Split */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Left Column: ACTIVE VOICE AGENTS (2 cols) */}
+          <div className="lg:col-span-2 space-y-4 font-mono">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-cyan" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  ACTIVE VOICE AGENTS ({agents.length})
                 </h3>
-                <p className="text-xs text-text-muted">Configured conversational assistants</p>
               </div>
               <Link
                 href="/agents"
@@ -387,8 +506,8 @@ export default function OverviewPage() {
             </div>
 
             {loading ? (
-              <div className="p-12 text-center text-xs font-mono text-cyan">
-                READING_AGENT_REGISTRY...
+              <div className="p-12 rounded-xl border border-border/70 bg-navy-deep/40 text-center text-xs text-cyan animate-pulse">
+                SYNCING_AGENT_REPOSITORY...
               </div>
             ) : agents.length === 0 ? (
               <EmptyState
@@ -406,13 +525,17 @@ export default function OverviewPage() {
                   return (
                     <div
                       key={agent.id}
-                      className="p-4 rounded-xl border border-border/70 bg-navy-deep/70 backdrop-blur-md hover:border-cyan/40 transition-all flex items-start justify-between gap-4 group"
+                      className="p-4 sm:p-5 rounded-xl border border-border/80 bg-navy-deep/60 hover:border-cyan/40 hover:bg-navy-deep/80 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group relative"
                     >
-                      <div className="space-y-1.5 min-w-0">
-                        <div className="flex items-center gap-2.5">
+                      {/* Left side details */}
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-navy-elevated border border-border/70 group-hover:border-cyan/40 transition-colors">
+                            <Bot className="w-4 h-4 text-cyan" />
+                          </div>
                           <Link
                             href={`/agents/${agent.id}`}
-                            className="font-semibold text-white group-hover:text-cyan transition-colors text-sm truncate font-mono"
+                            className="font-bold text-white group-hover:text-cyan transition-colors text-sm truncate"
                           >
                             {agent.config.name}
                           </Link>
@@ -420,18 +543,20 @@ export default function OverviewPage() {
                             {agent.status}
                           </Badge>
                           {isDemo && (
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border border-cyan/40 bg-cyan/10 text-cyan">
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded border border-cyan/40 bg-cyan/10 text-cyan">
                               DEMO
                             </span>
                           )}
-                          <span className="text-[10px] text-text-muted font-mono">
+                          <span className="text-[10px] text-text-muted">
                             v{agent.version}
                           </span>
                         </div>
-                        <p className="text-xs text-text-secondary line-clamp-1 leading-relaxed">
+
+                        <p className="text-xs text-text-secondary line-clamp-1 font-sans">
                           {agent.config.description}
                         </p>
-                        <div className="flex items-center gap-3 text-[11px] font-mono text-text-muted">
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
                           <span>LANG: {agent.config.language}</span>
                           <span>•</span>
                           <span>{agent.config.goals.length} GOALS</span>
@@ -440,10 +565,11 @@ export default function OverviewPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0 font-mono">
+                      {/* Right side action buttons */}
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                         <Link href={`/agents/${agent.id}/refine`}>
                           <Button size="sm" variant="secondary" className="gap-1.5">
-                            <Sparkles className="w-3 h-3 text-cyan" />
+                            <Sparkles className="w-3.5 h-3.5 text-cyan" />
                             <span>Refine</span>
                           </Button>
                         </Link>
@@ -460,14 +586,14 @@ export default function OverviewPage() {
             )}
           </div>
 
-          {/* Recent Telemetry (1 col) */}
+          {/* Right Column: RECENT TELEMETRY (1 col) */}
           <div className="space-y-4 font-mono">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                  Recent Telemetry
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-cyan" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  RECENT TELEMETRY
                 </h3>
-                <p className="text-xs text-text-muted">Completed interaction records</p>
               </div>
               <Link
                 href="/sessions"
@@ -488,37 +614,51 @@ export default function OverviewPage() {
               />
             ) : (
               <div className="space-y-3">
-                {sessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className="p-3.5 rounded-xl border border-border/70 bg-navy-deep/70 backdrop-blur-md space-y-2 hover:border-cyan/30 transition-colors text-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-white">{session.agentName}</span>
-                      <span
-                        className={`text-[9px] px-1.5 py-0.2 rounded border uppercase font-bold ${
-                          session.outcome === "resolved"
-                            ? "bg-cyan/10 text-cyan border-cyan/30"
-                            : session.outcome === "escalated"
-                            ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                            : "bg-red-500/10 text-red-400 border-red-500/30"
-                        }`}
-                      >
-                        {session.outcome}
-                      </span>
+                {sessions.map((session) => {
+                  const outcomeUpper = session.outcome.toUpperCase();
+                  const badgeColor =
+                    outcomeUpper === "RESOLVED"
+                      ? "bg-cyan/10 text-cyan border-cyan/40"
+                      : outcomeUpper === "ESCALATED"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                      : outcomeUpper === "UNRESOLVED"
+                      ? "bg-orange-500/10 text-orange-400 border-orange-500/30"
+                      : "bg-red-500/10 text-red-400 border-red-500/30";
+
+                  return (
+                    <div
+                      key={session.id}
+                      className="p-3.5 rounded-xl border border-border/80 bg-navy-deep/60 hover:border-cyan/30 transition-all space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white truncate max-w-[160px]">
+                          {session.agentName}
+                        </span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded border uppercase font-bold tracking-wider ${badgeColor}`}
+                        >
+                          {outcomeUpper}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-text-secondary line-clamp-2 font-sans">
+                        {session.summary ?? "Interaction completed."}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-text-muted pt-1.5 border-t border-border/40">
+                        <span>{session.metrics.totalMessages} TURNS</span>
+                        <span>
+                          {Math.floor(session.metrics.durationSeconds / 60)}m{" "}
+                          {session.metrics.durationSeconds % 60}s
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-text-secondary line-clamp-2">
-                      {session.summary ?? "Interaction completed."}
-                    </p>
-                    <div className="flex items-center justify-between text-[10px] text-text-muted pt-1 border-t border-border/50">
-                      <span>{session.metrics.totalMessages} TURNS</span>
-                      <span>{Math.floor(session.metrics.durationSeconds / 60)}m {session.metrics.durationSeconds % 60}s</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
+        </div>
         </div>
       </section>
 
