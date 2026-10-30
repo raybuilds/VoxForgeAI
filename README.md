@@ -48,6 +48,27 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000) to open the application shell.
 
+### Environment Configuration
+
+Create a `.env.local` file in the root of the project with your API keys:
+
+```bash
+cp .env.example .env.local
+```
+
+Populate the keys in `.env.local`:
+
+```env
+# Google Gemini API key for natural language agent synthesis and refinement
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+
+# ElevenLabs API key for real Conversational AI agents, signed URLs, voices, and analytics
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+```
+
+> **Security Note:** Secrets are strictly server-side. Never prefix them with `NEXT_PUBLIC_`. The client playground authenticates securely using short-lived signed URLs.
+
 ### Available Scripts
 
 | Script | Command | Purpose |
@@ -55,8 +76,9 @@ Visit [http://localhost:3000](http://localhost:3000) to open the application she
 | `npm run dev` | `next dev --webpack` | Launches development server on port 3000 |
 | `npm run build` | `next build --webpack` | Compiles optimized production bundle |
 | `npm run start` | `next start` | Runs built production server |
-| `npm run lint` | `eslint` | Performs ESLint static analysis |
-| `npm run typecheck` | `tsc --noEmit` | Runs strict TypeScript compiler check |
+| `npm run lint` | `eslint` | Performs ESLint static analysis (0 errors, 0 warnings) |
+| `npm run typecheck` | `tsc --noEmit` | Runs strict TypeScript compiler check (0 errors) |
+| `npm run verify` | `node scripts/verify.mjs` | Runs automated end-to-end integration & security verification suite |
 
 ---
 
@@ -179,8 +201,17 @@ c:/Projects/VoxForgeAI/
   - Comprehensive Session Detail Inspector (`/sessions/[id]`) with turn-by-turn transcripts, latency benchmarks, and escalation telemetry.
   - Agent Inspector integration (`/agents/[id]`) displaying historical sessions filtered strictly by agent ID.
   - Voice Playground integration (`/playground`) with one-click test session simulation persisting to local telemetry.
-- [ ] **M6: Web Deployment**
-- [ ] **M7: ElevenLabs Conversational AI Integration**
-  - Bi-directional WebSockets audio streaming.
-  - ElevenLabs agent synchronization and remote publishing.
-- [ ] **M8: Advanced Features & Polish**
+- [x] **M7: Real ElevenLabs Conversational AI & Official React SDK Integration** (Complete)
+  - Official `@elevenlabs/react` `<ConversationProvider>` and `useConversation` hook integration.
+  - Microphone permission lifecycle management with real browser audio streaming.
+  - Server-side authenticated signed URL generation via `/api/elevenlabs/signed-url` protecting master API keys.
+  - Full ElevenLabs agent lifecycle: create (`POST /api/elevenlabs/agents`), fetch (`GET /api/elevenlabs/agents/[id]`), update (`PATCH /api/elevenlabs/agents/[id]`), and delete (`DELETE /api/elevenlabs/agents/[id]`).
+  - Dynamic ElevenLabs voice catalog integration via `/api/elevenlabs/voices` with datalist suggestions in configuration editor.
+  - Live reactive audio frequency spectrum polling updating VoiceOrb and audio wave visualizer states seamlessly.
+  - Real turn transcript streaming, mute/unmute control, and automated session persistence to local intelligence storage on call termination.
+- [x] **M8: Gemini LLM Integration & Production Hardening** (Complete)
+  - Real Google Gemini API server-side synthesis (`/api/generate-agent`) with 30s timeout, JSON schemas, candidate model fallback (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`).
+  - Conversational refinement (`/api/refine-agent`) with Gemini LLM enforcing strict preservation of unprompted fields.
+  - Session intelligence synchronization (`/api/elevenlabs/conversations`) pulling real call durations, message counts, and transcripts into the session explorer and analytics dashboard.
+  - Zero-warning ESLint and zero-error TypeScript typechecking.
+  - Automated integration & security verification suite (`npm run verify`).

@@ -53,6 +53,28 @@ function EditAgentContent() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<Array<{ voice_id: string; name: string; category?: string }>>([]);
+  const [voicesLoading, setVoicesLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadVoices() {
+      setVoicesLoading(true);
+      try {
+        const res = await fetch("/api/elevenlabs/voices");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.voices)) {
+            setAvailableVoices(data.voices);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch ElevenLabs voices dynamically:", err);
+      } finally {
+        setVoicesLoading(false);
+      }
+    }
+    loadVoices();
+  }, []);
 
   useEffect(() => {
     async function loadAgent() {
@@ -191,13 +213,63 @@ function EditAgentContent() {
 
     try {
       if (!agent) return;
+      let newProviderId = agent.externalProviderId;
+
+      // 1. If agent is linked to ElevenLabs, update remote configuration
+      if (agent.externalProviderId) {
+        try {
+          const patchRes = await fetch(`/api/elevenlabs/agents/${encodeURIComponent(agent.externalProviderId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(result.data),
+          });
+
+          if (!patchRes.ok) {
+            const errData = await patchRes.json().catch(() => ({ error: "Remote update failed" }));
+            setValidationErrors({
+              submit: `ElevenLabs remote update failed (HTTP ${patchRes.status}): ${errData.error || "Could not synchronize with provider."}`,
+            });
+            setIsSaving(false);
+            return;
+          }
+        } catch (netErr) {
+          console.error("Network error updating ElevenLabs agent:", netErr);
+          setValidationErrors({
+            submit: `Network error updating ElevenLabs agent: ${netErr instanceof Error ? netErr.message : "Unknown error"}`,
+          });
+          setIsSaving(false);
+          return;
+        }
+      } else if (status === "published" || status === "testing") {
+        // Attempt to provision on ElevenLabs if published or testing
+        try {
+          const createRes = await fetch("/api/elevenlabs/agents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(result.data),
+          });
+          if (createRes.ok) {
+            const createData = await createRes.json();
+            if (createData.agent_id) {
+              newProviderId = createData.agent_id;
+            }
+          }
+        } catch (createErr) {
+          console.warn("Could not provision ElevenLabs agent during save:", createErr);
+        }
+      }
+
+      // 2. Persist locally
       const updated = await defaultAgentRepository.update(agent.id, result.data);
+      if (newProviderId && newProviderId !== agent.externalProviderId) {
+        await defaultAgentRepository.setExternalProviderId(agent.id, newProviderId);
+      }
       if (status !== agent.status) {
         await defaultAgentRepository.updateStatus(agent.id, status);
       }
 
       if (updated) {
-        setAgent({ ...updated, status });
+        setAgent({ ...updated, externalProviderId: newProviderId, status });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
 
@@ -390,12 +462,20 @@ function EditAgentContent() {
 
             <div>
               <label className="block text-[10px] font-mono font-semibold uppercase tracking-widest text-text-muted mb-1.5">
-                Voice Identifier (Optional)
+                Voice Model {voicesLoading ? "(Loading...)" : availableVoices.length > 0 ? `(${availableVoices.length} Synced)` : ""}
               </label>
+              <datalist id="elevenlabs-voices-list">
+                {availableVoices.map((v) => (
+                  <option key={v.voice_id} value={v.voice_id}>
+                    {v.name} {v.category ? `(${v.category})` : ""}
+                  </option>
+                ))}
+              </datalist>
               <input
                 type="text"
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
+                list="elevenlabs-voices-list"
                 placeholder="e.g. 21m00Tcm4TlvDq8ikWAM (ElevenLabs Voice ID)"
                 className="w-full bg-navy-elevated/90 border border-border/80 rounded-lg px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:border-cyan"
               />

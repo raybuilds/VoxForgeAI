@@ -160,6 +160,33 @@ export class LocalStorageAgentRepository implements AgentRepository {
     return { ...updated };
   }
 
+  async setExternalProviderId(id: string, externalProviderId: string): Promise<Agent> {
+    this.initialize();
+    const existing = this.memoryCache.get(id);
+    if (!existing) {
+      throw new Error(`Agent not found with id: ${id}`);
+    }
+
+    const now = new Date().toISOString();
+    const updated: Agent = {
+      ...existing,
+      externalProviderId,
+      updatedAt: now,
+    };
+
+    this.memoryCache.set(id, updated);
+    this.persist();
+    return { ...updated };
+  }
+
+  async save(agent: Agent): Promise<Agent> {
+    this.initialize();
+    const validated = AgentSchema.parse(agent);
+    this.memoryCache.set(validated.id, validated);
+    this.persist();
+    return { ...validated };
+  }
+
   async updateStatus(id: string, status: Agent["status"]): Promise<Agent> {
     this.initialize();
     const existing = this.memoryCache.get(id);

@@ -16,7 +16,7 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { defaultSessionRepository } from "@/lib/repositories/session-repository";
-import { ConversationSession } from "@/types/agent";
+import { ConversationSession, TranscriptMessage } from "@/types/agent";
 
 export default function SessionDetailPage() {
   const params = useParams();
@@ -30,7 +30,61 @@ export default function SessionDetailPage() {
       if (!sessionId) return;
       setLoading(true);
       try {
-        const found = await defaultSessionRepository.getById(sessionId);
+        let found = await defaultSessionRepository.getById(sessionId);
+        if (!found) {
+          // Attempt remote lookup from ElevenLabs API
+          try {
+            const res = await fetch(`/api/elevenlabs/conversations/${encodeURIComponent(sessionId)}`);
+            if (res.ok) {
+              const data = await res.json();
+              const conv = data.conversation;
+              if (conv) {
+                const turns: TranscriptMessage[] = Array.isArray(conv.transcript)
+                  ? conv.transcript.map(
+                      (t: { role: "user" | "agent"; message: string; time_in_call_secs?: number }, idx: number) => ({
+                        id: `turn-${sessionId}-${idx}`,
+                        role: t.role,
+                        text: t.message,
+                        timestamp: new Date(
+                          (conv.start_time_unix_secs + (t.time_in_call_secs || 0)) * 1000
+                        ).toISOString(),
+                      })
+                    )
+                  : [];
+
+                found = {
+                  id: conv.conversation_id,
+                  agentId: conv.agent_id,
+                  agentName: "ElevenLabs Remote Agent",
+                  source: "elevenlabs",
+                  status: conv.status === "done" ? "completed" : "in_progress",
+                  outcome: "resolved",
+                  startedAt: new Date(conv.start_time_unix_secs * 1000).toISOString(),
+                  endedAt: new Date(
+                    (conv.start_time_unix_secs + (conv.call_duration_secs || 0)) * 1000
+                  ).toISOString(),
+                  summary: conv.analysis?.transcript_summary || undefined,
+                  transcript: turns,
+                  metrics: {
+                    durationSeconds: conv.call_duration_secs || 0,
+                    userTurns: turns.filter((t) => t.role === "user").length,
+                    agentTurns: turns.filter((t) => t.role === "agent").length,
+                    totalMessages: turns.length,
+                    averageLatencyMs: null,
+                    firstResponseLatencyMs: null,
+                    interruptionCount: 0,
+                    isSimulatedMetrics: false,
+                  },
+                  isTestSession: false,
+                  createdAt: new Date().toISOString(),
+                };
+                await defaultSessionRepository.create(found);
+              }
+            }
+          } catch (elErr) {
+            console.warn("Could not fetch remote ElevenLabs conversation:", elErr);
+          }
+        }
         setSession(found);
       } catch (err) {
         console.error("Failed to load session:", err);

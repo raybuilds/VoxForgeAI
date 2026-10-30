@@ -144,6 +144,23 @@ export default function CreateAgentPage() {
     setIsSaving(true);
     try {
       const created = await defaultAgentRepository.create(generatedConfig);
+      try {
+        const elRes = await fetch("/api/elevenlabs/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedConfig),
+        });
+        if (elRes.ok) {
+          const elData = await elRes.json();
+          if (elData.agent_id) {
+            created.externalProviderId = elData.agent_id;
+            created.status = "testing";
+            await defaultAgentRepository.save(created);
+          }
+        }
+      } catch (elErr) {
+        console.warn("Could not sync with ElevenLabs on save (agent saved locally):", elErr);
+      }
       setSavedAgentId(created.id);
       if (redirectImmediately) {
         router.push(`/agents/${created.id}`);
@@ -162,6 +179,23 @@ export default function CreateAgentPage() {
     setIsSaving(true);
     try {
       const created = await defaultAgentRepository.create(generatedConfig);
+      try {
+        const elRes = await fetch("/api/elevenlabs/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedConfig),
+        });
+        if (elRes.ok) {
+          const elData = await elRes.json();
+          if (elData.agent_id) {
+            created.externalProviderId = elData.agent_id;
+            created.status = "testing";
+            await defaultAgentRepository.save(created);
+          }
+        }
+      } catch (elErr) {
+        console.warn("Could not sync with ElevenLabs on save:", elErr);
+      }
       router.push(`/agents/${created.id}/edit`);
     } catch (err) {
       console.error("Failed to save generated agent for editing:", err);
@@ -230,6 +264,23 @@ export default function CreateAgentPage() {
 
     try {
       const created = await defaultAgentRepository.create(parseResult.data);
+      try {
+        const elRes = await fetch("/api/elevenlabs/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parseResult.data),
+        });
+        if (elRes.ok) {
+          const elData = await elRes.json();
+          if (elData.agent_id) {
+            created.externalProviderId = elData.agent_id;
+            created.status = "testing";
+            await defaultAgentRepository.save(created);
+          }
+        }
+      } catch (elErr) {
+        console.warn("Could not sync with ElevenLabs on manual save:", elErr);
+      }
       router.push(`/agents/${created.id}`);
     } catch (err) {
       console.error("Failed to create agent manually:", err);

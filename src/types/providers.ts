@@ -19,6 +19,8 @@ export interface AgentRepository {
   create(config: AgentConfig): Promise<Agent>;
   update(id: string, updates: Partial<AgentConfig>): Promise<Agent>;
   updateStatus(id: string, status: Agent["status"]): Promise<Agent>;
+  setExternalProviderId(id: string, externalProviderId: string): Promise<Agent>;
+  save(agent: Agent): Promise<Agent>;
   delete(id: string): Promise<void>;
   count(): Promise<{ total: number; published: number; draft: number }>;
   clearDemoData(): Promise<void>;

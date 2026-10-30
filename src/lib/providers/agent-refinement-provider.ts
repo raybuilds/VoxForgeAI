@@ -467,4 +467,34 @@ export class MockAgentRefinementProvider implements AgentRefinementProvider {
   }
 }
 
-export const defaultAgentRefinementProvider = new MockAgentRefinementProvider();
+export class GeminiAgentRefinementProvider implements AgentRefinementProvider {
+  name = "Google Gemini Refinement Provider (API Integration)";
+
+  async refineAgent(input: AgentRefinementInput): Promise<AgentRefinementResult> {
+    if (typeof window !== "undefined") {
+      const response = await fetch("/api/refine-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+
+      const data = await response.json().catch(() => ({ error: "Failed to communicate with refinement API" }));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Gemini refinement failed");
+      }
+
+      return {
+        proposedConfig: AgentConfigSchema.parse(data.proposedConfig),
+        modifiedFields: data.modifiedFields || [],
+        explanation: data.explanation || "Configuration updated via Gemini AI.",
+        clarificationsNeeded: data.clarifications,
+        source: "llm-refinement",
+      };
+    }
+
+    const fallback = new MockAgentRefinementProvider();
+    return await fallback.refineAgent(input);
+  }
+}
+
+export const defaultAgentRefinementProvider = new GeminiAgentRefinementProvider();

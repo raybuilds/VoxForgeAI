@@ -665,4 +665,4 @@ export class GeminiAgentGenerationProvider implements AgentGenerationProvider {
 }
 
 // Default export singleton: Rule-based mock generator is the active default
-export const defaultAgentGenerationProvider: AgentGenerationProvider = new MockAgentGenerationProvider();
+export const defaultAgentGenerationProvider: AgentGenerationProvider = new GeminiAgentGenerationProvider();

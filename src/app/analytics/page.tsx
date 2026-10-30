@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Activity,
   Layers,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -22,7 +24,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { defaultSessionRepository } from "@/lib/repositories/session-repository";
 import { defaultSessionService } from "@/lib/services/session-service";
 import { defaultAgentRepository } from "@/lib/repositories/agent-repository";
-import { ConversationSession } from "@/types/agent";
+import { ConversationSession, TranscriptMessage } from "@/types/agent";
 import { SessionMetricsSummary } from "@/types/providers";
 
 export default function AnalyticsPage() {
@@ -36,6 +38,100 @@ export default function AnalyticsPage() {
   const [selectedSource, setSelectedSource] = useState<string>("all");
 
   const [generatingSamples, setGeneratingSamples] = useState(false);
+  const [syncingElevenLabs, setSyncingElevenLabs] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const handleSyncElevenLabs = async () => {
+    setSyncingElevenLabs(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/elevenlabs/conversations");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Sync failed" }));
+        throw new Error(errData.error || `Failed to fetch conversations (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      const convList: Array<{
+        conversation_id: string;
+        agent_id: string;
+        status: string;
+        call_duration_secs: number;
+        start_time_unix_secs: number;
+        message_count: number;
+      }> = data.conversations || [];
+
+      const allAgents = await defaultAgentRepository.list();
+
+      for (const c of convList) {
+        const exists = await defaultSessionRepository.getById(c.conversation_id);
+        if (!exists) {
+          let transcript: TranscriptMessage[] = [];
+          try {
+            const detailRes = await fetch(`/api/elevenlabs/conversations/${encodeURIComponent(c.conversation_id)}`);
+            if (detailRes.ok) {
+              const detailData = await detailRes.json();
+              if (Array.isArray(detailData.conversation?.transcript)) {
+                transcript = detailData.conversation.transcript.map(
+                  (t: { role: "user" | "agent"; message: string; time_in_call_secs?: number }, idx: number) => ({
+                    id: `turn-${c.conversation_id}-${idx}`,
+                    role: t.role,
+                    text: t.message,
+                    timestamp: new Date((c.start_time_unix_secs + (t.time_in_call_secs || 0)) * 1000).toISOString(),
+                  })
+                );
+              }
+            }
+          } catch {
+            // detail fetch failed, use empty transcript
+          }
+
+          const matchedAgent = allAgents.find((a) => a.externalProviderId === c.agent_id);
+
+          const newSession: ConversationSession = {
+            id: c.conversation_id,
+            agentId: matchedAgent?.id || c.agent_id,
+            agentName: matchedAgent?.config.name || "ElevenLabs Remote Agent",
+            source: "elevenlabs",
+            status: c.status === "done" ? "completed" : "in_progress",
+            outcome: "resolved",
+            startedAt: new Date(c.start_time_unix_secs * 1000).toISOString(),
+            endedAt: new Date((c.start_time_unix_secs + (c.call_duration_secs || 0)) * 1000).toISOString(),
+            transcript,
+            metrics: {
+              durationSeconds: c.call_duration_secs || 0,
+              userTurns: transcript.filter((t) => t.role === "user").length,
+              agentTurns: transcript.filter((t) => t.role === "agent").length,
+              totalMessages: transcript.length || c.message_count || 0,
+              averageLatencyMs: null,
+              firstResponseLatencyMs: null,
+              interruptionCount: 0,
+              isSimulatedMetrics: false,
+            },
+            isTestSession: false,
+            createdAt: new Date().toISOString(),
+          };
+
+          await defaultSessionRepository.create(newSession);
+        }
+      }
+
+      const filter: Parameters<typeof defaultSessionRepository.list>[0] = {};
+      if (selectedAgent !== "all") filter.agentId = selectedAgent;
+      if (selectedOutcome !== "all") filter.outcome = selectedOutcome as ConversationSession["outcome"];
+      if (selectedSource !== "all") filter.source = selectedSource as ConversationSession["source"];
+
+      const updatedList = await defaultSessionRepository.list(filter);
+      const metricsSummary = await defaultSessionRepository.getMetricsSummary(filter);
+      setSessions(updatedList);
+      setSummary(metricsSummary);
+    } catch (err: unknown) {
+      console.error("Failed to sync ElevenLabs conversations:", err);
+      setSyncError(err instanceof Error ? err.message : "Failed to sync conversations");
+    } finally {
+      setSyncingElevenLabs(false);
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -121,16 +217,31 @@ export default function AnalyticsPage() {
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <Activity className="w-4 h-4 text-cyan" />
             <span>OBSERVABILITY_SOURCE:</span>
-            <span className="text-cyan font-bold">LOCAL_PERSISTENCE (M5_SIMULATED)</span>
+            <span className="text-cyan font-bold">
+              {sessions.some((s) => s.source === "elevenlabs")
+                ? "HYBRID (ELEVENLABS_LIVE & LOCAL)"
+                : "LOCAL_WORKSPACE (M5)"}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSyncElevenLabs}
+              disabled={syncingElevenLabs}
+              className="gap-1.5 text-xs text-cyan border-cyan/40 hover:bg-cyan/10"
+              title="Fetch and sync conversations directly from ElevenLabs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-cyan ${syncingElevenLabs ? "animate-spin" : ""}`} />
+              <span>{syncingElevenLabs ? "Syncing..." : "Sync ElevenLabs"}</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={handleGenerateSamples}
               disabled={generatingSamples}
-              className="gap-1.5 text-xs text-cyan border-cyan/40 hover:bg-cyan/10"
+              className="gap-1.5 text-xs text-text-secondary border-border/80 hover:bg-navy-elevated"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan" />
               <span>{generatingSamples ? "Generating..." : "Generate Sample Telemetry"}</span>
@@ -143,6 +254,17 @@ export default function AnalyticsPage() {
             </Link>
           </div>
         </div>
+
+        {/* Sync Error Notice */}
+        {syncError && (
+          <div className="p-3.5 rounded-xl border border-red-500/40 bg-red-950/20 text-xs font-mono text-red-300 flex items-center justify-between gap-2 shadow-sm">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <span>{syncError}</span>
+            </div>
+            <button onClick={() => setSyncError(null)} className="text-text-muted hover:text-white font-bold px-1.5">✕</button>
+          </div>
+        )}
 
         {/* Filter Bar */}
         <div className="p-3.5 rounded-xl border border-border/80 bg-navy-deep/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 font-mono text-xs">

@@ -23,20 +23,26 @@ import { VoiceField } from "@/components/visual/voice-field";
 import { VoiceOrb } from "@/components/voice/voice-orb";
 import { AudioWaveVisualizer } from "@/components/voice/audio-wave-visualizer";
 import { defaultAgentRepository } from "@/lib/repositories/agent-repository";
-import { DEMO_SESSIONS } from "@/lib/demo-data";
+import { defaultSessionRepository } from "@/lib/repositories/session-repository";
 import { Agent } from "@/types";
+import { ConversationSession } from "@/types/agent";
 
 export default function OverviewPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [sessions, setSessions] = useState<ConversationSession[]>([]);
   const [hasDemo, setHasDemo] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const list = await defaultAgentRepository.list();
+      const [list, demoPresent, allSessions] = await Promise.all([
+        defaultAgentRepository.list(),
+        defaultAgentRepository.hasDemoData(),
+        defaultSessionRepository.getAll(),
+      ]);
       setAgents(list);
-      const demoPresent = await defaultAgentRepository.hasDemoData();
       setHasDemo(demoPresent);
+      setSessions(allSessions);
     } catch (err) {
       console.error("Failed to load repo data:", err);
     } finally {
@@ -46,15 +52,16 @@ export default function OverviewPage() {
 
   useEffect(() => {
     let isMounted = true;
-    defaultAgentRepository.list().then((list) => {
+    Promise.all([
+      defaultAgentRepository.list(),
+      defaultAgentRepository.hasDemoData(),
+      defaultSessionRepository.getAll(),
+    ]).then(([list, demoPresent, allSessions]) => {
       if (isMounted) {
         setAgents(list);
-        defaultAgentRepository.hasDemoData().then((demoPresent) => {
-          if (isMounted) {
-            setHasDemo(demoPresent);
-            setLoading(false);
-          }
-        });
+        setHasDemo(demoPresent);
+        setSessions(allSessions);
+        setLoading(false);
       }
     });
 
@@ -73,11 +80,11 @@ export default function OverviewPage() {
     await loadData();
   };
 
-  const sessions = hasDemo ? DEMO_SESSIONS : [];
   const totalAgents = agents.length;
   const publishedAgents = agents.filter((a) => a.status === "published").length;
   const totalSessions = sessions.length;
-  const successRate = totalSessions > 0 ? "100%" : "—";
+  const resolvedCount = sessions.filter((s) => s.outcome === "resolved").length;
+  const successRate = totalSessions > 0 ? `${Math.round((resolvedCount / totalSessions) * 100)}%` : "—";
 
   return (
     <AppShell>

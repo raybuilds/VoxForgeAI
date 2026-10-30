@@ -63,7 +63,7 @@ export type AgentConfig = z.infer<typeof AgentConfigSchema>;
  * Complete Agent entity
  */
 export const AgentSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   config: AgentConfigSchema,
   status: AgentStatusSchema.default("draft"),
   version: z.number().int().positive().default(1),
@@ -157,8 +157,8 @@ export type SessionEscalation = z.infer<typeof SessionEscalationSchema>;
  * Complete Conversation Session entity (M5 Observability)
  */
 export const ConversationSessionSchema = z.object({
-  id: z.string().uuid(),
-  agentId: z.string().uuid(),
+  id: z.string().min(1),
+  agentId: z.string().min(1),
   agentName: z.string(), // Snapshot of agent name at session time
   source: SessionSourceSchema.default("simulated"),
   status: SessionStatusSchema.default("completed"),

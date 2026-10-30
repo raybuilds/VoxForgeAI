@@ -15,6 +15,7 @@ import {
   PhoneCall,
   Clock,
   ExternalLink,
+  Radio,
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
@@ -65,6 +66,39 @@ function AgentDetailsContent() {
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const handleSyncToElevenLabs = async () => {
+    if (!agent) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/elevenlabs/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(agent.config),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Failed to publish agent" }));
+        throw new Error(errData.error || `Publishing failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.agent_id) {
+        await defaultAgentRepository.setExternalProviderId(agent.id, data.agent_id);
+        await defaultAgentRepository.updateStatus(agent.id, "testing");
+        setAgent({ ...agent, externalProviderId: data.agent_id, status: "testing" });
+      }
+    } catch (err) {
+      console.error("Sync error:", err);
+      setSyncError(err instanceof Error ? err.message : "Failed to sync with ElevenLabs");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell title="Agent Inspector" description="Loading agent telemetry...">
@@ -111,6 +145,18 @@ function AgentDetailsContent() {
           </Link>
 
           <div className="flex items-center gap-2">
+            {!agent.externalProviderId && (
+              <Button
+                size="sm"
+                onClick={handleSyncToElevenLabs}
+                disabled={isSyncing}
+                className="gap-1.5 bg-cyan/20 border border-cyan/50 text-cyan hover:bg-cyan/30"
+                title="Publish agent to ElevenLabs Conversational AI"
+              >
+                <Radio className={`w-3.5 h-3.5 text-cyan ${isSyncing ? "animate-pulse" : ""}`} />
+                <span>{isSyncing ? "Publishing..." : "Publish to ElevenLabs"}</span>
+              </Button>
+            )}
             <button
               onClick={() => setShowDeleteModal(true)}
               className="p-2 rounded-lg border border-border/80 bg-navy-elevated/70 text-text-muted hover:text-red-400 hover:border-red-400/40 transition-colors"
@@ -169,6 +215,14 @@ function AgentDetailsContent() {
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Sync Error Banner */}
+        {syncError && (
+          <div className="p-3.5 rounded-xl border border-red-500/40 bg-red-950/20 text-xs font-mono text-red-300 flex items-center justify-between gap-2 shadow-sm">
+            <span>{syncError}</span>
+            <button onClick={() => setSyncError(null)} className="text-text-muted hover:text-white font-bold px-1.5">✕</button>
           </div>
         )}
 

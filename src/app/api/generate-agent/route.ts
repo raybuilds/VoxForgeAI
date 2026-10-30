@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AgentConfigSchema } from "@/types";
 import { AgentGenerationInput } from "@/types/providers";
-import { MockAgentGenerationProvider } from "@/lib/providers/agent-generation-provider";
 
 /**
  * Strict Zod validation schema for the /api/generate-agent request payload.
@@ -22,6 +21,7 @@ const GenerateAgentApiInputSchema = z.object({
     .array(z.string())
     .max(50, "Exceeded maximum number of constraints")
     .optional(),
+  model: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Strengthened input validation
     const parsedInput = GenerateAgentApiInputSchema.safeParse(rawJson);
     if (!parsedInput.success) {
       const firstError = parsedInput.error.issues[0]?.message || "Invalid input parameters.";
@@ -54,15 +53,15 @@ export async function POST(req: NextRequest) {
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (!geminiApiKey) {
-      // Server-side fallback: Use deterministic generator when no API key is in environment
-      const mockProvider = new MockAgentGenerationProvider();
-      const result = await mockProvider.generateFromPrompt(validatedInput);
-      return NextResponse.json({
-        ...result,
-        source: "rule-based-mock",
-        explanation: `${result.explanation} (Generated using deterministic rule-based mock engine; no Gemini API key configured).`,
-      });
+    if (!geminiApiKey || !geminiApiKey.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            "GEMINI_API_KEY is not configured on the server. Please add GEMINI_API_KEY to your environment variables or .env.local file to synthesize voice agents with Gemini AI.",
+          code: "MISSING_GEMINI_KEY",
+        },
+        { status: 401 }
+      );
     }
 
     // Call Google Gemini API securely on the server
@@ -73,89 +72,190 @@ The output MUST be a JSON object with this exact structure:
   "suggestedConfig": {
     "name": string (max 80 chars),
     "description": string (max 300 chars),
-    "persona": string (conversational character, tone, manner),
+    "persona": string (conversational character, tone, manner suitable for spoken voice dialogue),
     "goals": string[] (at least 1 primary goal),
-    "systemInstructions": string (detailed turn-taking and conversational directives),
+    "systemInstructions": string (detailed turn-taking directives, tone, phone etiquette, and conversation flow),
     "welcomeMessage": string (initial greeting spoken upon call connection),
     "language": string (e.g. "en-US"),
     "conversationSteps": [
       {
-        "id": string,
+        "id": string (unique, e.g. "step-1"),
         "name": string,
         "instruction": string,
-        "order": number,
+        "order": number (1, 2, 3...),
         "requiredInformation": string[]
       }
     ],
     "guardrails": [
       {
-        "id": string,
+        "id": string (unique, e.g. "gr-1"),
         "rule": string,
         "actionOnViolation": "refuse_politely" | "escalate_to_human" | "terminate_session",
-        "customResponse": string (optional spoken refusal)
+        "customResponse": string (spoken refusal statement)
       }
     ],
     "escalationRules": [
       {
-        "id": string,
+        "id": string (unique, e.g. "esc-1"),
         "condition": string,
-        "target": string,
-        "handoffSummaryPrompt": string (optional)
+        "target": string (e.g. "human_support_queue"),
+        "handoffSummaryPrompt": string
       }
     ]
   },
-  "explanation": string (brief summary of how requirements were mapped)
+  "explanation": string (brief 1-2 sentence summary of how requirements were mapped into agent traits)
 }
 Return ONLY valid JSON without markdown fences.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt },
-                { text: `User Description: ${validatedInput.prompt}\nTarget Language: ${validatedInput.targetLanguage || "en-US"}` },
+    const preferredModel = parsedInput.data.model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const candidateModels = Array.from(new Set([preferredModel, "gemini-2.0-flash", "gemini-1.5-flash"]));
+
+    let lastError: { status: number; text: string } | null = null;
+    let successfulData: unknown = null;
+
+    for (const model of candidateModels) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey.trim()}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: systemPrompt },
+                    {
+                      text: `User Description: ${validatedInput.prompt}\nTarget Language: ${validatedInput.targetLanguage || "en-US"}${
+                        validatedInput.constraints?.length
+                          ? `\nExplicit Constraints:\n- ${validatedInput.constraints.join("\n- ")}`
+                          : ""
+                      }`,
+                    },
+                  ],
+                },
               ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        }),
+              generationConfig: {
+                responseMimeType: "application/json",
+              },
+            }),
+            signal: AbortSignal.timeout(30000), // 30-second timeout
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => "");
+          lastError = { status: response.status, text: errText };
+          // If model not found (404), try next model in fallback list
+          if (response.status === 404) {
+            continue;
+          }
+          // For other errors (e.g. 401, 403, 429), break immediately
+          break;
+        }
+
+        successfulData = await response.json();
+        break;
+      } catch (err: unknown) {
+        const isTimeout = err instanceof Error && err.name === "TimeoutError";
+        lastError = {
+          status: isTimeout ? 504 : 500,
+          text: err instanceof Error ? err.message : "Request failed",
+        };
+        if (!isTimeout) continue;
+        break;
       }
-    );
-
-    if (!response.ok) {
-      console.warn("Gemini API call failed, falling back to rule-based generator");
-      const mockProvider = new MockAgentGenerationProvider();
-      const result = await mockProvider.generateFromPrompt(validatedInput);
-      return NextResponse.json({
-        ...result,
-        source: "gemini-fallback",
-        explanation: `${result.explanation} (Note: Gemini API call failed with status ${response.status}; falling back to deterministic mock generator).`,
-      });
     }
 
-    const geminiData = await response.json();
-    const candidateText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!candidateText) {
-      throw new Error("Empty response received from Gemini API");
+    if (!successfulData) {
+      const status = lastError?.status || 502;
+      let errMsg = "Gemini API request failed";
+      try {
+        if (lastError?.text) {
+          const parsed = JSON.parse(lastError.text);
+          errMsg = parsed.error?.message || lastError.text;
+        }
+      } catch {
+        errMsg = lastError?.text || errMsg;
+      }
+
+      if (status === 429) {
+        return NextResponse.json(
+          { error: `Gemini API rate limit exceeded: ${errMsg}. Please wait a moment and try again.` },
+          { status: 429 }
+        );
+      }
+      if (status === 401 || status === 403) {
+        return NextResponse.json(
+          { error: `Gemini API authentication failed: ${errMsg}. Please verify your GEMINI_API_KEY.` },
+          { status: 401 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: `Gemini API error (HTTP ${status}): ${errMsg}` },
+        { status: status >= 400 && status < 600 ? status : 502 }
+      );
     }
 
-    const parsedJson = JSON.parse(candidateText);
-    const validatedConfig = AgentConfigSchema.parse(parsedJson.suggestedConfig);
+    const geminiPayload = successfulData as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string }>;
+        };
+      }>;
+    };
+
+    const candidateText = geminiPayload.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!candidateText || !candidateText.trim()) {
+      return NextResponse.json(
+        { error: "Empty or blank response received from Gemini API." },
+        { status: 502 }
+      );
+    }
+
+    let cleanJson = candidateText.trim();
+    if (cleanJson.startsWith("```")) {
+      cleanJson = cleanJson.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    }
+
+    let parsedJson: { suggestedConfig?: unknown; explanation?: string };
+    try {
+      parsedJson = JSON.parse(cleanJson);
+    } catch (parseErr) {
+      console.error("Failed to parse Gemini JSON:", cleanJson, parseErr);
+      return NextResponse.json(
+        { error: "Gemini returned invalid or unparseable JSON format." },
+        { status: 502 }
+      );
+    }
+
+    if (!parsedJson.suggestedConfig || typeof parsedJson.suggestedConfig !== "object") {
+      return NextResponse.json(
+        { error: "Gemini response missing 'suggestedConfig' root object." },
+        { status: 502 }
+      );
+    }
+
+    const validationResult = AgentConfigSchema.safeParse(parsedJson.suggestedConfig);
+    if (!validationResult.success) {
+      console.error("Gemini configuration schema validation failure:", validationResult.error);
+      return NextResponse.json(
+        {
+          error: "Gemini generated an agent configuration that does not conform to the schema.",
+          details: validationResult.error.issues,
+        },
+        { status: 422 }
+      );
+    }
 
     return NextResponse.json({
-      suggestedConfig: validatedConfig,
+      suggestedConfig: validationResult.data,
       source: "gemini-api",
-      explanation: parsedJson.explanation || "Agent synthesized via Gemini 2.5 Flash.",
+      explanation: parsedJson.explanation || "Agent synthesized via Google Gemini API.",
     });
   } catch (error: unknown) {
-    console.error("API /api/generate-agent error:", error);
+    console.error("API /api/generate-agent uncaught error:", error);
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
